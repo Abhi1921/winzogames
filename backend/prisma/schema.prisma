@@ -1,5 +1,5 @@
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -135,7 +135,7 @@ model GameRoom {
   gameSlug      String   @default("ludo")
   hostId        String
   status        String   @default("WAITING") // WAITING, PLAYING, FINISHED
-  gameStateJson String   // JSON string of authoritative server state
+  gameStateJson String   @db.Text // JSON string of authoritative server state
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
