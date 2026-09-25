@@ -18,6 +18,7 @@ import {
   Award
 } from "lucide-react";
 import { GameCard } from "../components/games/GameCard";
+import { GAMES_CATALOG, getStaticGames } from "../data/gamesCatalog";
 
 export function HomePage() {
   const [featuredGames, setFeaturedGames] = useState<any[]>([]);
@@ -27,16 +28,21 @@ export function HomePage() {
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/games?featured=true").then((r) => r.json()),
-      fetch("/api/games?sort=popular").then((r) => r.json()),
-      fetch("/api/leaderboards?type=GLOBAL").then((r) => r.json()),
+      fetch("/api/games?featured=true").then((r) => r.ok ? r.json() : null),
+      fetch("/api/games?sort=popular").then((r) => r.ok ? r.json() : null),
+      fetch("/api/leaderboards?type=GLOBAL").then((r) => r.ok ? r.json() : null),
     ])
       .then(([featuredRes, popularRes, leadRes]) => {
-        setFeaturedGames(featuredRes.games || []);
-        setPopularGames(popularRes.games || []);
-        setLeaderboard((leadRes.leaderboards || []).slice(0, 5));
+        const feat = featuredRes?.games?.length ? featuredRes.games : GAMES_CATALOG.filter((g) => g.isFeatured);
+        const pop = popularRes?.games?.length ? popularRes.games : getStaticGames("", "", "", "popular");
+        setFeaturedGames(feat);
+        setPopularGames(pop);
+        setLeaderboard((leadRes?.leaderboards || []).slice(0, 5));
       })
-      .catch((err) => console.error(err))
+      .catch((err) => {
+        setFeaturedGames(GAMES_CATALOG.filter((g) => g.isFeatured));
+        setPopularGames(getStaticGames("", "", "", "popular"));
+      })
       .finally(() => setLoading(false));
   }, []);
 

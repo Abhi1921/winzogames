@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { Heart, Gamepad2 } from "lucide-react";
 import { GameCard } from "../components/games/GameCard";
 
+import { GAMES_CATALOG } from "../data/gamesCatalog";
+
 export function FavoritesPage() {
   const [favoriteGames, setFavoriteGames] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -10,9 +12,15 @@ export function FavoritesPage() {
     fetch("/api/games?popular=true")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (data) setFavoriteGames(data.games.slice(0, 4));
+        if (data && data.games && data.games.length > 0) {
+          setFavoriteGames(data.games.slice(0, 4));
+        } else {
+          setFavoriteGames(GAMES_CATALOG.slice(0, 4));
+        }
       })
-      .catch((err) => console.error(err))
+      .catch((err) => {
+        setFavoriteGames(GAMES_CATALOG.slice(0, 4));
+      })
       .finally(() => setLoading(false));
   }, []);
 

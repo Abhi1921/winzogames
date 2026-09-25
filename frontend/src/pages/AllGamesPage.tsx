@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Search, Gamepad2, SlidersHorizontal } from "lucide-react";
 import { GameCard } from "../components/games/GameCard";
+import { getStaticGames } from "../data/gamesCatalog";
 
 export function AllGamesPage() {
   const [searchParams] = useSearchParams();
@@ -29,10 +30,15 @@ export function AllGamesPage() {
       if (sortBy) params.append("sort", sortBy);
 
       const res = await fetch(`/api/games?${params.toString()}`);
+      if (!res.ok) throw new Error("API unreachable");
       const data = await res.json();
-      setGames(data.games || []);
+      if (data && data.games && data.games.length > 0) {
+        setGames(data.games);
+      } else {
+        setGames(getStaticGames(search, selectedCategory, selectedDifficulty, sortBy));
+      }
     } catch (err) {
-      console.error(err);
+      setGames(getStaticGames(search, selectedCategory, selectedDifficulty, sortBy));
     } finally {
       setLoading(false);
     }

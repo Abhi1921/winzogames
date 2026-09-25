@@ -20,6 +20,8 @@ import { RPSGame } from "../games/rps/RPSGame";
 import { CricketGame } from "../games/cricket/CricketGame";
 import { SnakesLaddersGame } from "../games/snakes-ladders/SnakesLaddersGame";
 
+import { getStaticGameBySlug } from "../data/gamesCatalog";
+
 export function GameDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const [game, setGame] = useState<any>(null);
@@ -30,9 +32,15 @@ export function GameDetailPage() {
     fetch(`/api/games/${slug}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (data) setGame(data.game);
+        if (data && data.game) {
+          setGame(data.game);
+        } else {
+          setGame(getStaticGameBySlug(slug));
+        }
       })
-      .catch((err) => console.error(err))
+      .catch((err) => {
+        setGame(getStaticGameBySlug(slug));
+      })
       .finally(() => setLoading(false));
   }, [slug]);
 
