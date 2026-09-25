@@ -1,0 +1,180 @@
+-- WinzoGames Database Table Schema (MySQL Compatible)
+-- Database: winzo_db
+
+CREATE DATABASE IF NOT EXISTS `winzo_db` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `winzo_db`;
+
+-- 1. Users Table
+CREATE TABLE IF NOT EXISTS `users` (
+  `id` VARCHAR(36) NOT NULL PRIMARY KEY,
+  `email` VARCHAR(191) NOT NULL UNIQUE,
+  `username` VARCHAR(191) NOT NULL UNIQUE,
+  `fullName` VARCHAR(191) NOT NULL,
+  `passwordHash` VARCHAR(191) NOT NULL,
+  `dateOfBirth` DATETIME(3) NULL,
+  `isVerified` TINYINT(1) NOT NULL DEFAULT 1,
+  `role` VARCHAR(50) NOT NULL DEFAULT 'USER',
+  `status` VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+  `virtualPoints` INT NOT NULL DEFAULT 500,
+  `currentStreak` INT NOT NULL DEFAULT 1,
+  `winsCount` INT NOT NULL DEFAULT 0,
+  `lastLoginAt` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
+  `createdAt` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
+  `updatedAt` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 2. User Profiles Table
+CREATE TABLE IF NOT EXISTS `user_profiles` (
+  `id` VARCHAR(36) NOT NULL PRIMARY KEY,
+  `userId` VARCHAR(36) NOT NULL UNIQUE,
+  `avatarUrl` VARCHAR(255) NOT NULL DEFAULT '/avatars/avatar-1.png',
+  `bio` TEXT NOT NULL,
+  `showPublicLeaderboard` TINYINT(1) NOT NULL DEFAULT 1,
+  `notificationsEnabled` TINYINT(1) NOT NULL DEFAULT 1,
+  `themePreference` VARCHAR(20) NOT NULL DEFAULT 'light',
+  `createdAt` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
+  `updatedAt` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 3. Game Categories Table
+CREATE TABLE IF NOT EXISTS `game_categories` (
+  `id` VARCHAR(36) NOT NULL PRIMARY KEY,
+  `slug` VARCHAR(191) NOT NULL UNIQUE,
+  `name` VARCHAR(191) NOT NULL,
+  `description` TEXT NOT NULL,
+  `icon` VARCHAR(50) NOT NULL DEFAULT 'gamepad-2',
+  `displayOrder` INT NOT NULL DEFAULT 0,
+  `createdAt` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 4. Games Catalog Table
+CREATE TABLE IF NOT EXISTS `games` (
+  `id` VARCHAR(36) NOT NULL PRIMARY KEY,
+  `slug` VARCHAR(191) NOT NULL UNIQUE,
+  `name` VARCHAR(191) NOT NULL,
+  `description` TEXT NOT NULL,
+  `categoryId` VARCHAR(36) NOT NULL,
+  `thumbnail` VARCHAR(255) NOT NULL,
+  `difficulty` VARCHAR(20) NOT NULL DEFAULT 'EASY',
+  `status` VARCHAR(20) NOT NULL DEFAULT 'PUBLISHED',
+  `isFeatured` TINYINT(1) NOT NULL DEFAULT 0,
+  `isMultiplayer` TINYINT(1) NOT NULL DEFAULT 0,
+  `playCount` INT NOT NULL DEFAULT 0,
+  `rating` DOUBLE NOT NULL DEFAULT 4.8,
+  `instructions` TEXT NOT NULL,
+  `controls` VARCHAR(255) NOT NULL DEFAULT 'Mouse / Touch / Keyboard',
+  `createdAt` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
+  `updatedAt` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  FOREIGN KEY (`categoryId`) REFERENCES `game_categories`(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 5. Game Sessions Table
+CREATE TABLE IF NOT EXISTS `game_sessions` (
+  `id` VARCHAR(36) NOT NULL PRIMARY KEY,
+  `userId` VARCHAR(36) NOT NULL,
+  `gameId` VARCHAR(36) NOT NULL,
+  `score` INT NOT NULL DEFAULT 0,
+  `durationSeconds` INT NOT NULL DEFAULT 0,
+  `result` VARCHAR(50) NOT NULL DEFAULT 'COMPLETED',
+  `status` VARCHAR(50) NOT NULL DEFAULT 'IN_PROGRESS',
+  `startedAt` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
+  `completedAt` DATETIME(3) NULL,
+  FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`gameId`) REFERENCES `games`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 6. Game Scores Table
+CREATE TABLE IF NOT EXISTS `game_scores` (
+  `id` VARCHAR(36) NOT NULL PRIMARY KEY,
+  `userId` VARCHAR(36) NOT NULL,
+  `gameId` VARCHAR(36) NOT NULL,
+  `gameSessionId` VARCHAR(36) NOT NULL,
+  `score` INT NOT NULL,
+  `pointsEarned` INT NOT NULL DEFAULT 0,
+  `achievedAt` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
+  FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`gameId`) REFERENCES `games`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`gameSessionId`) REFERENCES `game_sessions`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 7. Game Rooms Table
+CREATE TABLE IF NOT EXISTS `game_rooms` (
+  `id` VARCHAR(36) NOT NULL PRIMARY KEY,
+  `roomId` VARCHAR(50) NOT NULL UNIQUE,
+  `gameSlug` VARCHAR(50) NOT NULL DEFAULT 'ludo',
+  `hostId` VARCHAR(36) NOT NULL,
+  `status` VARCHAR(50) NOT NULL DEFAULT 'WAITING',
+  `gameStateJson` LONGTEXT NOT NULL,
+  `createdAt` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
+  `updatedAt` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 8. Point Transactions Table (Ledger)
+CREATE TABLE IF NOT EXISTS `point_transactions` (
+  `id` VARCHAR(36) NOT NULL PRIMARY KEY,
+  `userId` VARCHAR(36) NOT NULL,
+  `amount` INT NOT NULL,
+  `type` VARCHAR(50) NOT NULL,
+  `source` VARCHAR(50) NOT NULL DEFAULT 'SYSTEM',
+  `referenceId` VARCHAR(191) NULL,
+  `description` VARCHAR(255) NOT NULL,
+  `createdAt` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
+  FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 9. Leaderboard Entries Table
+CREATE TABLE IF NOT EXISTS `leaderboard_entries` (
+  `id` VARCHAR(36) NOT NULL PRIMARY KEY,
+  `userId` VARCHAR(191) NOT NULL,
+  `username` VARCHAR(191) NOT NULL,
+  `avatarUrl` VARCHAR(255) NOT NULL DEFAULT '/avatars/avatar-1.png',
+  `gameSlug` VARCHAR(50) NOT NULL DEFAULT 'global',
+  `type` VARCHAR(50) NOT NULL DEFAULT 'GLOBAL',
+  `period` VARCHAR(50) NOT NULL DEFAULT 'ALL_TIME',
+  `score` INT NOT NULL,
+  `points` INT NOT NULL,
+  `rank` INT NOT NULL DEFAULT 0,
+  `updatedAt` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 10. Achievements Table
+CREATE TABLE IF NOT EXISTS `achievements` (
+  `id` VARCHAR(36) NOT NULL PRIMARY KEY,
+  `code` VARCHAR(191) NOT NULL UNIQUE,
+  `title` VARCHAR(191) NOT NULL,
+  `description` TEXT NOT NULL,
+  `category` VARCHAR(50) NOT NULL DEFAULT 'GENERAL',
+  `pointsReward` INT NOT NULL DEFAULT 100,
+  `icon` VARCHAR(50) NOT NULL DEFAULT 'trophy',
+  `ruleType` VARCHAR(50) NOT NULL DEFAULT 'GAMES_PLAYED',
+  `ruleValue` INT NOT NULL DEFAULT 1,
+  `createdAt` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 11. User Achievements Table
+CREATE TABLE IF NOT EXISTS `user_achievements` (
+  `id` VARCHAR(36) NOT NULL PRIMARY KEY,
+  `userId` VARCHAR(36) NOT NULL,
+  `achievementId` VARCHAR(36) NOT NULL,
+  `progress` INT NOT NULL DEFAULT 0,
+  `isUnlocked` TINYINT(1) NOT NULL DEFAULT 0,
+  `unlockedAt` DATETIME(3) NULL,
+  UNIQUE KEY `user_achievement_unique` (`userId`, `achievementId`),
+  FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`achievementId`) REFERENCES `achievements`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 12. Quiz Questions Table
+CREATE TABLE IF NOT EXISTS `quiz_questions` (
+  `id` VARCHAR(36) NOT NULL PRIMARY KEY,
+  `category` VARCHAR(50) NOT NULL DEFAULT 'GK',
+  `question` TEXT NOT NULL,
+  `optionA` VARCHAR(255) NOT NULL,
+  `optionB` VARCHAR(255) NOT NULL,
+  `optionC` VARCHAR(255) NOT NULL,
+  `optionD` VARCHAR(255) NOT NULL,
+  `correctOption` VARCHAR(10) NOT NULL,
+  `difficulty` VARCHAR(20) NOT NULL DEFAULT 'EASY',
+  `createdAt` DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
