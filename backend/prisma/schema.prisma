@@ -1,0 +1,316 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  username      String    @unique
+  fullName      String
+  passwordHash  String
+  dateOfBirth   DateTime?
+  isVerified    Boolean   @default(true)
+  role          String    @default("USER") // USER, MODERATOR, ADMIN, SUPER_ADMIN
+  status        String    @default("ACTIVE") // ACTIVE, SUSPENDED
+  virtualPoints Int       @default(500) // Non-monetary virtual points balance
+  currentStreak Int       @default(1)
+  winsCount     Int       @default(0)
+  lastLoginAt   DateTime? @default(now())
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  profile           UserProfile?
+  sessions          Session[]
+  gameSessions      GameSession[]
+  gameScores        GameScore[]
+  pointTransactions PointTransaction[]
+  userAchievements  UserAchievement[]
+  favorites         Favorite[]
+  notifications     Notification[]
+  reportsSubmitted  Report[]            @relation("ReporterRelation")
+  auditLogs         AuditLog[]
+
+  friendsInitiated     Friend[]                    @relation("UserFriends")
+  friendsReceived      Friend[]                    @relation("FriendUsers")
+  requestsSent         FriendRequest[]             @relation("SentRequests")
+  requestsReceived     FriendRequest[]             @relation("ReceivedRequests")
+  challengeCompletions DailyChallengeCompletion[]
+}
+
+model UserProfile {
+  id                    String   @id @default(uuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  avatarUrl             String   @default("/avatars/avatar-1.png")
+  bio                   String   @default("Gaming enthusiast on WinzoGames! 🎮")
+  showPublicLeaderboard Boolean  @default(true)
+  notificationsEnabled  Boolean  @default(true)
+  themePreference       String   @default("light") // light, dark, system
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model GameCategory {
+  id           String   @id @default(uuid())
+  slug         String   @unique
+  name         String
+  description  String
+  icon         String   @default("gamepad-2")
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  games Game[]
+}
+
+model Game {
+  id            String       @id @default(uuid())
+  slug          String       @unique
+  name          String
+  description   String
+  categoryId    String
+  category      GameCategory @relation(fields: [categoryId], references: [id])
+  thumbnail     String
+  difficulty    String       @default("EASY") // EASY, MEDIUM, HARD
+  status        String       @default("PUBLISHED") // DRAFT, PUBLISHED, UNPUBLISHED
+  isFeatured    Boolean      @default(false)
+  isMultiplayer Boolean      @default(false)
+  playCount     Int          @default(0)
+  rating        Float        @default(4.8)
+  instructions  String       @default("Follow screen controls to play!")
+  controls      String       @default("Mouse clicks / Touch / Keyboard")
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  sessions  GameSession[]
+  scores    GameScore[]
+  favorites Favorite[]
+}
+
+model GameSession {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gameId          String
+  game            Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  score           Int       @default(0)
+  durationSeconds Int       @default(0)
+  result          String    @default("COMPLETED")
+  status          String    @default("IN_PROGRESS")
+  startedAt       DateTime  @default(now())
+  completedAt     DateTime?
+
+  scores GameScore[]
+}
+
+model GameScore {
+  id            String      @id @default(uuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gameId        String
+  game          Game        @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  gameSessionId String
+  gameSession   GameSession @relation(fields: [gameSessionId], references: [id], onDelete: Cascade)
+  score         Int
+  pointsEarned  Int         @default(0)
+  achievedAt    DateTime    @default(now())
+}
+
+model GameRoom {
+  id            String   @id @default(uuid())
+  roomId        String   @unique
+  gameSlug      String   @default("ludo")
+  hostId        String
+  status        String   @default("WAITING") // WAITING, PLAYING, FINISHED
+  gameStateJson String   // JSON string of authoritative server state
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  players GameRoomPlayer[]
+}
+
+model GameRoomPlayer {
+  id          String   @id @default(uuid())
+  roomId      String
+  gameRoom    GameRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId      String
+  username    String
+  playerColor String   // red, green, yellow, blue
+  isHost      Boolean  @default(false)
+  isConnected Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@unique([roomId, userId])
+}
+
+model PointTransaction {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount      Int
+  type        String // GAME_PLAY, HIGH_SCORE, ACHIEVEMENT, DAILY_STREAK, WELCOME_BONUS
+  source      String   @default("SYSTEM")
+  referenceId String?
+  description String
+  createdAt   DateTime @default(now())
+}
+
+model LeaderboardEntry {
+  id        String   @id @default(uuid())
+  userId    String
+  username  String
+  avatarUrl String   @default("/avatars/avatar-1.png")
+  gameSlug  String   @default("global")
+  type      String   @default("GLOBAL")
+  period    String   @default("ALL_TIME")
+  score     Int
+  points    Int
+  rank      Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+model Achievement {
+  id           String   @id @default(uuid())
+  code         String   @unique
+  title        String
+  description  String
+  category     String   @default("GENERAL")
+  pointsReward Int      @default(100)
+  icon         String   @default("trophy")
+  ruleType     String   @default("GAMES_PLAYED")
+  ruleValue    Int      @default(1)
+  createdAt    DateTime @default(now())
+
+  userAchievements UserAchievement[]
+}
+
+model UserAchievement {
+  id            String      @id @default(uuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievementId String
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  progress      Int         @default(0)
+  isUnlocked    Boolean     @default(false)
+  unlockedAt    DateTime?
+
+  @@unique([userId, achievementId])
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gameId    String
+  game      Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, gameId])
+}
+
+model Friend {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation("UserFriends", fields: [userId], references: [id], onDelete: Cascade)
+  friendId  String
+  friend    User     @relation("FriendUsers", fields: [friendId], references: [id], onDelete: Cascade)
+  status    String   @default("ACCEPTED")
+  createdAt DateTime @default(now())
+
+  @@unique([userId, friendId])
+}
+
+model FriendRequest {
+  id         String   @id @default(uuid())
+  senderId   String
+  sender     User     @relation("SentRequests", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId String
+  receiver   User     @relation("ReceivedRequests", fields: [receiverId], references: [id], onDelete: Cascade)
+  status     String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  createdAt  DateTime @default(now())
+
+  @@unique([senderId, receiverId])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("SYSTEM")
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model QuizQuestion {
+  id            String   @id @default(uuid())
+  category      String   @default("GK") // GK, SPORTS, BOLLYWOOD, INDIA, LOGO
+  question      String
+  optionA       String
+  optionB       String
+  optionC       String
+  optionD       String
+  correctOption String   // A, B, C, D
+  difficulty    String   @default("EASY")
+  createdAt     DateTime @default(now())
+}
+
+model DailyChallenge {
+  id           String   @id @default(uuid())
+  code         String   @unique
+  title        String
+  description  String
+  rewardPoints Int      @default(50)
+  gameSlug     String   @default("snake")
+  targetScore  Int      @default(100)
+  createdAt    DateTime @default(now())
+
+  completions DailyChallengeCompletion[]
+}
+
+model DailyChallengeCompletion {
+  id          String         @id @default(uuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challengeId String
+  challenge   DailyChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  completedAt DateTime       @default(now())
+
+  @@unique([userId, challengeId])
+}
+
+model Report {
+  id          String   @id @default(uuid())
+  reporterId  String
+  reporter    User     @relation("ReporterRelation", fields: [reporterId], references: [id], onDelete: Cascade)
+  targetType  String   // USER, GAME, TECHNICAL_ISSUE
+  targetId    String?
+  reason      String
+  description String
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  actorId   String
+  actor     User     @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  action    String
+  target    String
+  metadata  String?
+  createdAt DateTime @default(now())
+}
